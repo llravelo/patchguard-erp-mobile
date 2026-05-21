@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mirrors iOS Info.plist config keys. Edit these to point at your server. -->
+<resources>
+    <string name="server_base_url">http://192.168.0.28:8000</string>
+    <string name="mock_server_base_url">http://192.168.0.21:3000</string>
+    <bool name="test_mode">true</bool>
+    <integer name="batch_size">10</integer>
+</resources>

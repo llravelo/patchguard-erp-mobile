@@ -1,0 +1,2 @@
+-keep class com.patchguard.app.data.ImageMetadata { *; }
+-keepattributes *Annotation*
