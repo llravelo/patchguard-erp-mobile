@@ -1,20 +1,20 @@
 # PatchGuard
 
-Road-surface capture system. An iOS app samples camera frames at a configurable rate, tags each frame with GPS metadata, and batch-uploads JPEGs to a local ingest server over LAN.
+Road-surface capture system. An iOS app samples camera frames at a configurable rate, tags each frame with GPS metadata, and batch-uploads JPEGs to an ingest server.
 
 ## Components
 
 | Component | Path | Description |
 |-----------|------|-------------|
 | iOS app | `PatchGuard/` | SwiftUI app (iOS 26.0+) |
-| Ingest server | `server/` | Express.js receiver |
+| Test server | `server/` | Local Express.js mock for development |
 
 ---
 
 ## Requirements
 
 - **iOS app**: Xcode 26+, physical iPhone or iPad (camera + GPS required), Apple Developer account for signing
-- **Server**: Node.js 18+
+- **Test server**: Node.js 18+
 
 ---
 
@@ -24,20 +24,36 @@ App configuration lives in `PatchGuard/PatchGuard/Info.plist`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `SERVER_ENDPOINT` | `http://172.20.10.4:3000/api/v1/images/batch` | Full URL of the batch upload endpoint. Must be reachable from the device over LAN. |
+| `SERVER_BASE_URL` | `https://api-patchguard.ngrok.dev` | Base URL of the production backend. |
+| `MOCK_SERVER_BASE_URL` | `http://192.168.0.21:3000` | Base URL of the local test server. Update to your Mac's LAN IP. |
+| `TEST_MODE` | `false` | When `true`, targets `MOCK_SERVER_BASE_URL` and skips authentication. |
 | `BATCH_SIZE` | `10` | Number of frames accumulated before a POST is triggered. |
-
-**To point the app at your machine:**
-
-1. Find your Mac's LAN IP address: `ipconfig getifaddr en0`
-2. Open `PatchGuard/PatchGuard/Info.plist` in Xcode (or any text editor)
-3. Update `SERVER_ENDPOINT` to `http://<your-mac-ip>:3000/api/v1/images/batch`
 
 The app uses `NSAllowsArbitraryLoads` so plain HTTP to local addresses works without additional ATS configuration.
 
 ---
 
-## Running the Server
+## Operating Modes
+
+### Production mode (`TEST_MODE = false`)
+
+- Targets `SERVER_BASE_URL`
+- Shows a login screen on first launch; credentials are stored in Keychain and reused automatically
+- Each batch POST includes a `Bearer` token obtained from `POST /api/v1/auth/login`
+- After a successful batch upload, fires `POST /api/v1/analysis/trigger` to kick off server-side processing
+- Expects HTTP 201 from the batch endpoint
+
+### Test mode (`TEST_MODE = true`)
+
+- Targets `MOCK_SERVER_BASE_URL`
+- Login screen is bypassed entirely — no authentication
+- Batch POST sends no `Authorization` header
+- Expects HTTP 200 from the batch endpoint
+- Use with the local Express server in `server/`
+
+---
+
+## Running the Test Server
 
 ```bash
 cd server
@@ -45,11 +61,15 @@ npm install
 npm start
 ```
 
-The server binds to `0.0.0.0:3000` and is reachable from any device on the same network.
+The server binds to `0.0.0.0:3000` and is reachable from any device on the same network. Before starting, set `TEST_MODE` to `true` in `Info.plist` and update `MOCK_SERVER_BASE_URL` with your Mac's LAN IP:
+
+```bash
+ipconfig getifaddr en0   # find your Mac's LAN IP
+```
 
 ```
 GET  http://<mac-ip>:3000/health                  # health check
-POST http://<mac-ip>:3000/api/v1/images/batch     # batch ingest
+POST http://<mac-ip>:3000/api/v1/images/batch     # batch ingest (returns 200)
 ```
 
 Uploaded JPEGs are saved to `server/uploads/`. Each batch is logged to stdout with GPS coordinates, altitude, heading, and accuracy.
@@ -75,15 +95,21 @@ xcodebuild -project PatchGuard/PatchGuard.xcodeproj \
 
 ## Basic Usage
 
-1. Start the server on your Mac (`npm start` in `server/`)
-2. Connect your iPhone to the same Wi-Fi network as your Mac
-3. Update `SERVER_ENDPOINT` in `Info.plist` with your Mac's LAN IP
-4. Build and run the app on your device
-5. Grant camera and location permissions when prompted
-6. Select a capture rate (1, 2, or 5 FPS) and tap **Start**
-7. Point the camera at the road surface while moving
-8. Frames are buffered and uploaded in batches of `BATCH_SIZE`; progress appears in the server log and in `server/uploads/`
-9. Tap **Stop** to end the session
+### Against the test server
+
+1. Set `TEST_MODE = true` and `MOCK_SERVER_BASE_URL = http://<mac-ip>:3000` in `Info.plist`
+2. Start the test server: `cd server && npm start`
+3. Build and run the app on a device connected to the same Wi-Fi
+4. The app goes straight to the capture screen — no login
+5. Select a capture rate (1, 2, or 5 FPS) and tap **Start**
+6. Batches upload automatically; check `server/uploads/` for saved frames
+
+### Against production
+
+1. Ensure `TEST_MODE = false` in `Info.plist`
+2. Build and run the app
+3. Enter your credentials on the login screen; they are saved to Keychain for future launches
+4. Select a capture rate and tap **Start**
 
 ---
 
@@ -111,3 +137,5 @@ Each metadata object:
 ```
 
 `heading`, `altitude`, and `gps_accuracy` are optional.
+
+The production endpoint returns HTTP 201 on success. The test server returns HTTP 200.
