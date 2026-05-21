@@ -1,0 +1,35 @@
+# Build output
+build/
+app/build/
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+
+# Gradle
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+
+# Keystore — uncomment if you want to exclude signing keys
+#*.jks
+#*.keystore
+
+# Logs / profiling
+*.log
+*.hprof
+
+# External native build
+.cxx/
+.externalNativeBuild/
+
+# Keep Gradle wrapper
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!gradlew.bat
