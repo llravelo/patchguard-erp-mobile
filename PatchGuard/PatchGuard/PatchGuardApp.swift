@@ -2,16 +2,20 @@
 //  PatchGuardApp.swift
 //  PatchGuard
 //
-//  Created by Leiko Ravelo on 16/5/2026.
-//
 
 import SwiftUI
 
 @main
 struct PatchGuardApp: App {
+    @State private var isLoggedIn = IngestService.isTestMode || KeychainService.load() != nil
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if isLoggedIn {
+                ContentView()
+            } else {
+                LoginView { isLoggedIn = true }
+            }
         }
     }
 }

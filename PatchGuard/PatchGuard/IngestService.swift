@@ -22,20 +22,26 @@ enum IngestService {
         return URLSession(configuration: config)
     }()
 
-    // Hardcoded test credentials — seeded in backend on startup
-    private static let testEmail = "test@example.com"
-    private static let testPassword = "testpassword123"
-
     private static var accessToken: String?
+
+    static func login(email: String, password: String) async throws {
+        accessToken = try await fetchToken(email: email, password: password)
+    }
 
     private static func ensureToken() async throws {
         guard accessToken == nil else { return }
+        guard let credentials = KeychainService.load() else {
+            throw URLError(.userAuthenticationRequired)
+        }
+        accessToken = try await fetchToken(email: credentials.email, password: credentials.password)
+    }
+
+    private static func fetchToken(email: String, password: String) async throws -> String {
         let url = baseURL.appendingPathComponent("api/v1/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let body = "username=\(testEmail)&password=\(testPassword)"
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = "username=\(email)&password=\(password)".data(using: .utf8)
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -44,8 +50,7 @@ enum IngestService {
             throw URLError(.badServerResponse)
         }
         struct TokenResponse: Decodable { let access_token: String }
-        let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
-        accessToken = decoded.access_token
+        return try JSONDecoder().decode(TokenResponse.self, from: data).access_token
     }
 
     static func send(batch: [FrameBuffer.Frame]) async {
