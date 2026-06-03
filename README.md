@@ -1,13 +1,12 @@
 # PatchGuard
 
-Road-surface capture system. Mobile apps sample camera frames at a configurable rate, tag each frame with GPS metadata, and batch-upload JPEGs to an ingest server.
+Road-surface capture system. The iOS app samples camera frames at a configurable rate, tags each frame with GPS metadata, and batch-uploads JPEGs to an ingest server.
 
 ## Components
 
 | Component | Path | Description |
 |-----------|------|-------------|
 | iOS app | `PatchGuard/` | SwiftUI app (iOS 26.0+) |
-| Android app | `patchguard-android/` | Jetpack Compose app (Android 8.0+ / API 26+) |
 | Mock server | `server/` | Local Express.js server for development |
 
 ---
@@ -17,10 +16,9 @@ Road-surface capture system. Mobile apps sample camera frames at a configurable 
 | Component | Requirements |
 |-----------|-------------|
 | iOS app | Xcode 26+, macOS, physical iPhone or iPad, Apple Developer account for signing |
-| Android app | Android Studio (Ladybug or newer), physical device or emulator with camera |
 | Mock server | Node.js 18+ |
 
-Both mobile apps require a physical device for GPS tagging. The Android app can use an emulator for basic UI testing but GPS data will not be available.
+The iOS app requires a physical device for camera and GPS tagging.
 
 ---
 
@@ -37,32 +35,21 @@ Both mobile apps require a physical device for GPS tagging. The Android app can 
 
 `NSAllowsArbitraryLoads` is enabled so plain HTTP to local addresses works without extra ATS configuration.
 
-### Android — `patchguard-android/app/src/main/res/values/config.xml`
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `server_base_url` | `http://192.168.0.28:8000` | Base URL of the production backend |
-| `mock_server_base_url` | `http://192.168.0.21:3000` | Base URL of the local mock server — update to your machine's LAN IP |
-| `test_mode` | `true` | When `true`, targets `mock_server_base_url` and skips authentication |
-| `batch_size` | `10` | Number of frames accumulated before a POST is triggered |
-
-`network_security_config.xml` permits cleartext HTTP traffic for local development. Remove this for production builds.
-
 ---
 
 ## Operating Modes
 
-### Production mode (`TEST_MODE = false` / `test_mode = false`)
+### Production mode (`TEST_MODE = false`)
 
-- Targets `SERVER_BASE_URL` / `server_base_url`
-- Shows a login screen on first launch; credentials are stored securely (iOS Keychain / Android EncryptedSharedPreferences) and reused on subsequent launches
+- Targets `SERVER_BASE_URL`
+- Shows a login screen on first launch; credentials are stored securely in the iOS Keychain and reused on subsequent launches
 - Each batch POST includes a `Bearer` token obtained from `POST /api/v1/auth/login`
 - After a successful batch upload, fires `POST /api/v1/analysis/trigger` to kick off server-side processing
 - Expects HTTP 201 from the batch endpoint
 
-### Test mode (`TEST_MODE = true` / `test_mode = true`)
+### Test mode (`TEST_MODE = true`)
 
-- Targets `MOCK_SERVER_BASE_URL` / `mock_server_base_url`
+- Targets `MOCK_SERVER_BASE_URL`
 - Login screen is bypassed entirely — no authentication
 - Batch POST sends no `Authorization` header
 - Expects HTTP 200 from the batch endpoint
@@ -94,8 +81,8 @@ Uploaded JPEGs are saved to `server/uploads/`. Each batch is logged to stdout wi
 ### Pointing the app at the mock server
 
 1. Find your machine's LAN IP address (check your network settings or run `hostname -I` on Linux / `ipconfig` on Windows)
-2. Set `TEST_MODE` / `test_mode` to `true` in the app config
-3. Update `MOCK_SERVER_BASE_URL` / `mock_server_base_url` to `http://<your-ip>:3000`
+2. Set `TEST_MODE` to `true` in `Info.plist`
+3. Update `MOCK_SERVER_BASE_URL` to `http://<your-ip>:3000`
 4. Connect your device to the same Wi-Fi network as your machine
 
 ---
@@ -112,20 +99,6 @@ Build and run on a connected device from Xcode. Select your device as the run de
 
 ---
 
-## Android App
-
-Open the `patchguard-android/` directory in Android Studio. Sync the Gradle project, then build and run on a connected device or emulator.
-
-To build from the command line:
-
-```bash
-cd patchguard-android
-./gradlew assembleDebug          # debug APK
-./gradlew installDebug           # build and install on connected device
-```
-
----
-
 ## Basic Usage
 
 ### Against the mock server
@@ -139,7 +112,7 @@ cd patchguard-android
 
 ### Against production
 
-1. Ensure `TEST_MODE = false` in the app config
+1. Ensure `TEST_MODE = false` in `Info.plist`
 2. Build and run the app
 3. Enter your credentials on the login screen; they are saved securely for future launches
 4. Select a capture rate and tap **Start**
