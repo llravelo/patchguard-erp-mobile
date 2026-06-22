@@ -12,7 +12,7 @@ struct PatchGuardApp: App {
     var body: some Scene {
         WindowGroup {
             if isLoggedIn {
-                ContentView()
+                ContentView(onLogout: { isLoggedIn = false })
             } else {
                 LoginView { isLoggedIn = true }
             }

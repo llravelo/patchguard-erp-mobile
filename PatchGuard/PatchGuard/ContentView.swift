@@ -6,8 +6,11 @@
 import SwiftUI
 
 struct ContentView: View {
+    let onLogout: () -> Void
+
     @StateObject private var coordinator = RecordingCoordinator()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showLogoutConfirm = false
 
     private static let fpsOptions = [1, 2, 5]
 
@@ -50,6 +53,15 @@ struct ContentView: View {
             guard newPhase == .background, coordinator.isRunning else { return }
             coordinator.handleBackground()
         }
+        .confirmationDialog("Sign out?", isPresented: $showLogoutConfirm, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) {
+                IngestService.logout()
+                onLogout()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You will need to log in again to upload captures.")
+        }
     }
 
     // MARK: - Status Bar
@@ -75,6 +87,19 @@ struct ContentView: View {
                 .foregroundStyle(coordinator.hasGPS ? .green : .orange)
                 .padding(10)
                 .background(.ultraThinMaterial, in: Circle())
+
+            if !coordinator.isRunning {
+                Button {
+                    showLogoutConfirm = true
+                } label: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .padding(10)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .transition(.opacity.combined(with: .scale))
+            }
         }
     }
 
@@ -190,5 +215,5 @@ struct ViewfinderCorners: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(onLogout: {})
 }

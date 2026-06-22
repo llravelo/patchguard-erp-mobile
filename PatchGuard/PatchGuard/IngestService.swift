@@ -30,6 +30,11 @@ enum IngestService {
         accessToken = try await fetchToken(email: email, password: password)
     }
 
+    static func logout() {
+        accessToken = nil
+        KeychainService.clear()
+    }
+
     private static func ensureToken() async throws {
         guard accessToken == nil else { return }
         guard let credentials = KeychainService.load() else {
