@@ -28,7 +28,7 @@
 		<true/>
 	</dict>
 	<key>SERVER_BASE_URL</key>
-	<string>http://192.168.0.28:8000</string>
+	<string>https://patchguard-erp-jrbsd.ondigitalocean.app</string>
 	<key>BATCH_SIZE</key>
 	<integer>10</integer>
 	<key>TEST_MODE</key>
