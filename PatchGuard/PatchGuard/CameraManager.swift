@@ -127,12 +127,19 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Center-crop to 1024x1024; only the crop region is rendered by CIContext.
+        // Center-crop to the full height (1080×1080 on a 1920×1080 sensor), then scale
+        // down to 640×640 — the native input size for YOLOv5.
         let ciImage  = CIImage(cvPixelBuffer: pixelBuffer)
         let e        = ciImage.extent
-        let cropRect = CGRect(x: e.midX - 512, y: e.midY - 512, width: 1024, height: 1024)
+        let side     = min(e.width, e.height)
+        let cropRect = CGRect(x: e.midX - side / 2, y: e.midY - side / 2, width: side, height: side)
         guard let cgImage = ciContext.createCGImage(ciImage, from: cropRect) else { return }
 
-        Task { @MainActor [weak self] in self?.onFrame?(UIImage(cgImage: cgImage)) }
+        let targetSize = CGSize(width: 640, height: 640)
+        let scaled = UIGraphicsImageRenderer(size: targetSize).image { _ in
+            UIImage(cgImage: cgImage).draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+
+        Task { @MainActor [weak self] in self?.onFrame?(scaled) }
     }
 }
