@@ -24,6 +24,8 @@ enum IngestService {
 
     private static var accessToken: String?
 
+    // MARK: - Auth
+
     static func login(email: String, password: String) async throws {
         accessToken = try await fetchToken(email: email, password: password)
     }
@@ -40,8 +42,10 @@ enum IngestService {
         let url = baseURL.appendingPathComponent("api/v1/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = "username=\(email)&password=\(password)".data(using: .utf8)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        struct LoginBody: Encodable { let email: String; let password: String }
+        request.httpBody = try JSONEncoder().encode(LoginBody(email: email, password: password))
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -49,9 +53,11 @@ enum IngestService {
             print("[Ingest] Login failed: HTTP \(code)")
             throw URLError(.badServerResponse)
         }
-        struct TokenResponse: Decodable { let access_token: String }
-        return try JSONDecoder().decode(TokenResponse.self, from: data).access_token
+        struct TokenResponse: Decodable { let token: String }
+        return try JSONDecoder().decode(TokenResponse.self, from: data).token
     }
+
+    // MARK: - Frame upload
 
     static func send(batch: [FrameBuffer.Frame]) async {
         guard !batch.isEmpty else { return }
@@ -82,8 +88,8 @@ enum IngestService {
 
         body.appendString("--\(boundary)--\r\n")
 
-        let url = baseURL.appendingPathComponent("api/v1/images/batch")
-        var request = URLRequest(url: url)
+        let uploadPath = isTestMode ? "api/v1/images/batch" : "api/v1/mobile/frames"
+        var request = URLRequest(url: baseURL.appendingPathComponent(uploadPath))
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if !isTestMode, let token = accessToken {
@@ -94,17 +100,20 @@ enum IngestService {
         do {
             let (_, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {
-                if !isTestMode && http.statusCode == 401 { accessToken = nil }  // expired — reset so next call re-auths
-                let expectedOK = isTestMode ? 200 : 201
-                if http.statusCode != expectedOK { print("[Ingest] HTTP \(http.statusCode)"); return }
+                if !isTestMode && http.statusCode == 401 { accessToken = nil }
+                let expected = isTestMode ? 200 : 201
+                if http.statusCode != expected {
+                    print("[Ingest] Upload HTTP \(http.statusCode)")
+                    return
+                }
             }
         } catch {
-            print("[Ingest] \(error.localizedDescription)")
+            print("[Ingest] Upload failed: \(error.localizedDescription)")
             return
         }
 
+        // Fire-and-forget: kick off background inference on the server.
         if !isTestMode {
-            // TODO: remove once the server handles analysis on a periodic schedule (e.g. Celery Beat)
             var triggerRequest = URLRequest(url: baseURL.appendingPathComponent("api/v1/analysis/trigger"))
             triggerRequest.httpMethod = "POST"
             if let token = accessToken {
@@ -113,7 +122,6 @@ enum IngestService {
             _ = try? await session.data(for: triggerRequest)
         }
     }
-
 }
 
 private extension Data {
